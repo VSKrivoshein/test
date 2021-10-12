@@ -6,6 +6,9 @@ export KAFKA_HOST=localhost
 export DB_HOST=localhost
 export REDIS_PORT=6379
 
+install:
+	go get ./...
+
 start:
 	docker-compose --profile migrator up --build
 
