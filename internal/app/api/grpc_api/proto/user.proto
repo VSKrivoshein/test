@@ -1,0 +1,24 @@
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+
+option go_package = "./;api";
+
+service User {
+  rpc Create(CreateRequest) returns (google.protobuf.Empty) {}
+  rpc Delete(DeleteRequest) returns (google.protobuf.Empty) {}
+  rpc GetAll(google.protobuf.Empty) returns (GetAllResponse) {}
+}
+
+message CreateRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message DeleteRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message GetAllResponse {
+  repeated string userList = 1;
+}

@@ -1,0 +1,123 @@
+version: "3.5"
+
+networks:
+  dev:
+    driver: bridge
+
+services:
+  db-pg:
+    image: postgres:13-alpine
+    container_name: "user-database"
+    restart: always
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    networks:
+      - dev
+    volumes:
+      - database_posgres:/var/lib/postgresql/data
+
+  migrator-pg:
+    profiles: [ "migrator" ]
+    restart: on-failure
+    build: ./migrator/pg
+    container_name: "user-migrator-pg"
+    ports:
+      - "6000:6000"
+    env_file:
+      - .env
+    depends_on:
+      - db-pg
+    networks:
+      - dev
+
+  clickhouse:
+    image: yandex/clickhouse-server
+    container_name: "user-clickhouse"
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+      - "9009:9009"
+    depends_on:
+      - kafka
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 262144
+        hard: 262144
+    networks:
+      - "dev"
+
+  migrator-clickhouse:
+    profiles: [ "migrator" ]
+    restart: on-failure
+    build: ./migrator/clickhouse
+    container_name: "user-migrator-clickhouse"
+    ports:
+      - "6000:6000"
+    depends_on:
+      - clickhouse
+    networks:
+      - dev
+
+  redis:
+    image: redis
+    container_name: "user-redis"
+    networks:
+      - "dev"
+    ports:
+      - "6379:6379"
+
+  zookeeper:
+    image: "bitnami/zookeeper:latest"
+    container_name: "myapp-zookeeper"
+    networks:
+      - "dev"
+    expose:
+      - "2181"
+    ports:
+      - "2181:2181"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+
+  kafka:
+    image: bitnami/kafka:2.5.0
+    container_name: "user-kafka"
+    restart: on-failure
+    networks:
+      - "dev"
+    ports:
+      - "9092:9092"
+      - "8082:8082"
+      - "8083:8083"
+      - "56510:56510"
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CREATE_TOPICS=topic:1:1
+    depends_on:
+      - zookeeper
+
+  api:
+    build: .
+    container_name: "user-api"
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      - db-pg
+      - redis
+      - kafka
+      - clickhouse
+    networks:
+      - dev
+
+volumes:
+  database_posgres:
+
